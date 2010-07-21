@@ -1,17 +1,9 @@
 #!/bin/bash
-
-# $Id: pgsql83_GENERIC.sh,v 1.3 2007/12/18 17:46:42 cbbrowne Exp $
-# 
-# For documentation, refer to doc library:
-# http://somme:9080/Liberty/Index/Systems/DBA/index_html
-# And click on the "New Database init Script"
-
 CLUSTER='PGHEAD'
 PG_VERSION='postgresql-HEAD'
 PGPORT='7099'
 PGHOST=localhost
 PGUSER=postgres
-ISHACMP='no'
 
 BASE="/var/lib/postgresql/dbs"
 DB_BASE="/var/lib/postgresql/dbs"
@@ -20,7 +12,8 @@ DB_BASE="/var/lib/postgresql/dbs"
 CHECKPOINT_BASE=300         # default checkpoint timeout in seconds
 CHECKPOINT_SPLAY=31         # checkpoint timeout maximum splay time
 
-# These are all optional values
+# These are all optional values that get written into 
+# postgresql.conf as part of the "init" target
 TIMEZONE=GMT                          # default for timezone
 MAX_CONNECTIONS=100                   # default for max_connections
 LISTEN_ADDRESSES="*"                  # default for listen_addresses
@@ -34,13 +27,13 @@ CHECKPOINT_SEGMENTS=1                # default for checkpoint_segments
 #RANDOM_PAGE_COST=2.5                 # default for random_page_cost
 #EFFECTIVE_CACHE_SIZE=128MB           # default for effective_cache_size
 LOG_MIN_DURATION_STATEMENT=1000      # default for log_min_duration_statement
-LOG_DESTINATION=syslog
-#LOGGING_COLLECTOR=on
-#LOG_DIRECTORY=pg_log
+LOG_DESTINATION=syslog               # default logging target
+#LOGGING_COLLECTOR=on                # is logging turned on?
+#LOG_DIRECTORY=pg_log                # directory to log in (relative to cluster)
 #LOG_FILENAME="postgresql-%Y-%m-%d_%H%M%S.log"
 #LOG_LINE_PREFIX="<%t/%p>"
 
-POSTMASTER_USER='postgres'
+POSTMASTER_USER='postgres'           # Who's the DB superuser?
 
 # shouldn't have to edit any data below this for new clusters /
 # installs
@@ -55,16 +48,11 @@ QUOTED_ITEMS="LISTEN_ADDRESSES LOG_DESTINATION LOG_DIRECTORY
 LOG_FILENAME LOG_LINE_PREFIX"
 
 # Typically this script should be only used by the postgres user.
-# There are legitimate uses for other users (env and logtail).
+# There are legitimate uses for other users (e.g. - env).
 
 PERL_BIN='/usr/bin/perl'
 
 OLD_LOG_FILES_KEPT=100
-
-# derive name / install from script name
-#CLUSTER=`/bin/echo $0 | $PERLBIN -F'_' -lape '$_ = $F[0]; s|^.*/(.+)$|$1|o'`
-#INSTALL=`/bin/echo $0 | $PERLBIN -F'_' -lape '$_ = $F[1]; substr($_, -3, 3, "")'`
-
 
 echo "base: $BASE"
 echo "dbbase: $DB_BASE"
@@ -89,6 +77,10 @@ if [ -e "$PGCONF" ]; then
 		echo "Quitting."
 		exit 99
 	fi
+else
+    echo "whoops - Conf file ${PGCONF} does not exist"
+    echo "Quitting"
+    exit 99
 fi
 PGTZ='UTC'
 
@@ -139,26 +131,10 @@ case "$1" in
         "$PG_BIN_PATH/pg_ctl" -m f stop
         ;;
   env)
-	echo "Configuring env vars"
+	echo "Configuring env vars: PATH, MAN_PATH, PGHOST, PGUSER, PGPORT"
 	PATH="$PG_BIN_PATH:$ORIG_PATH"
 	MAN_PATH="$PG_MAN_PATH:$MAN_PATH"
-	export PATH MAN_PATH PGHOST PGUSER
-	;;
-  logtail)
-	echo "Tailing log file"
-	(cd "$PG_LOG_PATH/$PG_CLUSTER"; tail -f `ls -1 pg_*.log | tail -1`)
-	;;
-  purgelogs)
-	for DIR in "$PG_LOG_PATH/$PG_VERSION" "$PG_LOG_PATH/pg_autovacuum" ; do
-		echo "Purging old log files in $DIR"
-		pushd "$DIR"
-		LOG_COUNT=`ls -1 pg_*.log | wc -l`
-		DELETE_COUNT=$(( $LOG_COUNT - $OLD_LOG_FILES_KEPT ))
-		if [ $DELETE_COUNT -gt 0 ]; then
-			ls -1 pg_*.log | head -$DELETE_COUNT | xargs rm -f -- {}
-		fi
-		popd
-	done
+	export PATH MAN_PATH PGHOST PGUSER PGPORT
 	;;
   mkdir)
         if [ `whoami` != "$POSTMASTER_USER" ]; then 
