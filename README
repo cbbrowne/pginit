@@ -1,0 +1,27 @@
+PostgreSQL init script
+
+This script is intended to make it easy to set up PostgreSQL
+instances, run them, and allow users to reference them.
+
+postgres@cbbrowne:~/pginit> ./pgsql.sh
+base: /var/lib/postgresql/dbs
+dbbase: /var/lib/postgresql/dbs
+Expected port: 7099  Configured port in /var/lib/postgresql/dbs/PGHEAD/postgresql-HEAD/postgresql.conf 7099
+Usage: ./pgsqlhead.sh [start|autovacuum|reload|stop|env|mkdir|initdb]
+postgres@cbbrowne:~/pginit>
+
+start: starts up the instance
+
+autovacuum: obsolete - for use when autovac was a separate program
+
+reload: reloads configuration, so that if you change pg_hba.conf or
+    postgresql.conf, that config immediate effect
+
+stop: stops the instance
+
+env: loads the configuration (e.g. - PGPORT, PGHOST, ...) into current shell
+
+mkdir: creates directories needed for this PG instance
+
+initdb: runs "initdb" to initialize the database cluster.  Rewrites
+    postgresql.conf based on environment variables within this script
