@@ -5,7 +5,9 @@ PGPORT='7099'
 PGHOST=localhost
 PGUSER=postgres
 
+# BASE controls where the data of the database is stored
 BASE="/var/lib/postgresql/dbs"
+# DB_BASE indicates where to find database application binaries
 DB_BASE="/var/lib/postgresql/dbs"
 
 # Set these, or watch things break ;-)
@@ -69,19 +71,24 @@ PGDATA="$BASE/$CLUSTER/$PG_VERSION"
 PGCONF=${PGDATA}/postgresql.conf
 PG_LOG_FILE="$PG_LOG_PATH/pg.log"
 LD_LIBRARY_PATH="$PG_LIB_PATH:$LD_LIBRARY_PATH"
-if [ -e "$PGCONF" ]; then
-        CONFIG_PGPORT=`$PERL_BIN -lne 'print $1 if /^port\s*=\s*(\d+)\s*$/o' $PGCONF`
-        echo "Expected port: $PGPORT  Configured port in $PGCONF $CONFIG_PGPORT"
-	if [ "$CONFIG_PGPORT" -ne "$PGPORT" ]; then
-		echo "PGPORT variable in init ($PGPORT) does not match port in $PGCONF ($CONFIG_PGPORT)"
-		echo "Quitting."
-		exit 99
+
+port_check() {
+    if [ -e "$PGCONF" ]; then
+	if egrep "^ *port *= *${PGPORT}" $PGCONF > /dev/null 2>&1; then
+	# port OK
+	    port=ok
+	else
+	    echo "PGPORT variable in init ($PGPORT) does not match port in $PGCONF"
+	    egrep "port[:space:]*=" ${PGCONF}
+	    echo "Quitting."
+	    exit 99
 	fi
-else
-    echo "whoops - Conf file ${PGCONF} does not exist"
-    echo "Quitting"
-    exit 99
-fi
+    else
+	echo "whoops - Conf file ${PGCONF} does not exist"
+	echo "Quitting"
+	exit 99
+    fi
+}
 PGTZ='UTC'
 
 ORIG_PATH="$PATH"
@@ -98,22 +105,11 @@ case "$1" in
 	        echo "Not currently running as postgres user $POSTMASTER_USER. Quitting."
 		exit 99
 	fi
+	port_check
         echo "Starting PostgreSQL postmaster"
         ulimit -n 1024
 	"$PG_BIN_PATH/pg_ctl" start 
         ;;
-  autovacuum)
-        if [ `whoami` != "$POSTMASTER_USER" ]; then 
-	        echo "Not currently running as postgres user $POSTMASTER_USER. Quitting."
-		exit 99
-	fi
-	echo "Starting Autovacuum Daemon"
-	ulimit -n 1024
-	#$PGBINPATH/pg_autovacuum -H localhost -p $PGPORT -U postgres -L $PGLOGPATH/pg_autovacuum.log -D -d 1 -s 1500 -S 2 -v 1000 -V 2 -a 1000 -A 500
-	#$PGBINPATH/pg_autovacuum -H localhost -p $PGPORT -U postgres -L $PGLOGPATH/pg_autovacuum.log -D -d 1 -s 800 -S 5 -v 10000 -V 2
-	"$PG_BIN_PATH/pg_autovacuum" -H localhost -p $PGPORT -U postgres -d 1 -s 800 -S 5 -a 1000 -A 500 -v 10000 -V 2 < /dev/null 2>&1 | \
-                "$APACHE_BIN_PATH/rotatelogs" "$PG_LOG_PATH/pg_autovacuum/pg_autovacuum_%Y-%m-%d_%H:%M:%S.log" 10M &
-	;;
   reload)
         if [ `whoami` != "$POSTMASTER_USER" ]; then 
 	        echo "Not currently running as postgres user $POSTMASTER_USER. Quitting."
@@ -127,14 +123,17 @@ case "$1" in
 	        echo "Not currently running as postgres user $POSTMASTER_USER. Quitting."
 		exit 99
 	fi
+	port_check
         echo "Stopping PostgreSQL postmaster"
         "$PG_BIN_PATH/pg_ctl" -m f stop
         ;;
   env)
+	port_check
 	echo "Configuring env vars: PATH, MAN_PATH, PGHOST, PGUSER, PGPORT"
 	PATH="$PG_BIN_PATH:$ORIG_PATH"
 	MAN_PATH="$PG_MAN_PATH:$MAN_PATH"
 	export PATH MAN_PATH PGHOST PGUSER PGPORT
+	echo "PATH MAN_PATH PGHOST:${PGHOST} PGUSER:${PGUSER} PGPORT:${PGPORT}"
 	;;
   mkdir)
         if [ `whoami` != "$POSTMASTER_USER" ]; then 
@@ -164,7 +163,8 @@ case "$1" in
 		exit 99
 	fi
         if [ -e "${PGCONF}" ]; then
-                echo "${PGCONF} already exists, skipping initdb"
+                echo "${PGCONF} already exists!"
+		exit 99
         else
                 INITDB_CMD="\"$PG_BIN_PATH/initdb\" --pgdata \"$PGDATA\" --encoding=SQL_ASCII --locale=C"
                 echo "command: $INITDB_CMD"
@@ -211,7 +211,7 @@ case "$1" in
         fi
         ;;
   *)
-        echo "Usage: $0 [start|autovacuum|reload|stop|env|mkdir|initdb]"
+        echo "Usage: $0 [start|reload|stop|env|mkdir|initdb]"
         PATH=$ORIG_PATH
         export PATH
         ;;
