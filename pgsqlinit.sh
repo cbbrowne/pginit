@@ -138,7 +138,6 @@ case "$1" in
 		exit 99
 	fi
         echo "Making dirs..."
-        # logging stuff first
 
         for path in "$BASE/$CLUSTER" "$BASE/$CLUSTER/$PG_VERSION" ; do
 	if [ ! -d $path ]; then
