@@ -65,11 +65,8 @@ PG_LIB_PATH="$PG_BASE_PATH/lib"
 PG_MAN_PATH="$PG_BASE_PATH/man"
 
 export PGBINDIR=$PG_BIN_PATH
-LOG_PREFIX="$BASE/log"
-PG_LOG_PATH="$LOG_PREFIX/$CLUSTER"
 PGDATA="$BASE/$CLUSTER/$PG_VERSION"
 PGCONF=${PGDATA}/postgresql.conf
-PG_LOG_FILE="$PG_LOG_PATH/pg.log"
 LD_LIBRARY_PATH="$PG_LIB_PATH:$LD_LIBRARY_PATH"
 
 port_check() {
@@ -94,7 +91,7 @@ PGTZ='UTC'
 ORIG_PATH="$PATH"
 PATH="$PG_BIN_PATH:/usr/bin:/bin"
 
-export PATH PGTZ PGPORT PGDATA LD_LIBRARY_PATH PG_LOG_PATH PG_BIN_PATH PG_LIB_PATH PG_MAN_PATH
+export PATH PGTZ PGPORT PGDATA LD_LIBRARY_PATH PG_BIN_PATH PG_LIB_PATH PG_MAN_PATH
 
 test -x "$PG_BIN_PATH/postmaster" || (echo "missing postmaster"; exit 1)
 test -x "$PG_BIN_PATH/pg_ctl" || (echo "missing pg_ctl"; exit 1)
@@ -143,7 +140,7 @@ case "$1" in
         echo "Making dirs..."
         # logging stuff first
 
-        for path in $PG_LOG_PATH "$PG_LOG_PATH/$PG_VERSION" "$BASE/$CLUSTER" "$BASE/$CLUSTER/$PG_VERSION" ; do
+        for path in "$BASE/$CLUSTER" "$BASE/$CLUSTER/$PG_VERSION" ; do
 	if [ ! -d $path ]; then
 	    echo "mkdir $path"
 	    if mkdir -p $path; then
